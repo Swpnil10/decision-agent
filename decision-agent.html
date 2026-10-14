@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sieve — one clear recommendation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12181B;
+    --surface:#1A2226;
+    --surface-raised:#202A2F;
+    --hairline:#2C383E;
+    --text:#E9E5D9;
+    --text-dim:#8FA0A5;
+    --text-faint:#5C6A6E;
+    --signal:#5FAE86;
+    --signal-dim:#365a49;
+    --uncertain:#D9A441;
+    --uncertain-dim:#4a3f22;
+    --eliminated:#6b5a5a;
+    --font-display:'Fraunces', serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    min-height:100vh;
+    padding:48px 20px 80px;
+  }
+  .wrap{max-width:680px;margin:0 auto;}
+
+  /* ---------- header ---------- */
+  header{margin-bottom:36px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
+  .header-main{flex:1;}
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--signal);}
+  h1{
+    font-family:var(--font-display);
+    font-weight:500;
+    font-size:clamp(28px,5vw,38px);
+    line-height:1.15;
+    margin:0 0 10px;
+    letter-spacing:-.01em;
+  }
+  h1 em{font-style:italic;color:var(--signal);}
+  .sub{color:var(--text-dim);font-size:15px;line-height:1.55;max-width:52ch;}
+
+  /* ---------- header actions & settings ---------- */
+  .header-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+  .header-btns{display:flex;gap:6px;}
+  .api-settings-btn, .history-btn{
+    flex:none;
+    background:var(--surface);
+    border:1px solid var(--hairline);
+    border-radius:2px;
+    color:var(--text-dim);
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:.06em;
+    padding:9px 12px;
+    cursor:pointer;
+    display:flex;align-items:center;gap:6px;
+    white-space:nowrap;
+  }
+  .api-settings-btn:hover, .history-btn:hover{border-color:var(--text-faint);color:var(--text);}
+  .history-btn .count{
+    background:var(--signal-dim);color:var(--signal);
+    border-radius:8px;padding:1px 6px;font-size:10px;
+  }
+  .storage-note{
+    font-family:var(--font-mono);font-size:10px;color:var(--text-faint);
+    margin-top:2px;text-align:right;
+  }
+
+  /* ---------- api settings panel ---------- */
+  .settings-panel{
+    display:none;
+    background:var(--surface);border:1px solid var(--hairline);border-radius:3px;
+    margin-bottom:16px;padding:18px;
+  }
+  .settings-panel.open{display:block;animation:fadeUp .2s ease;}
+  .settings-panel-head{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:14px;border-bottom:1px solid var(--hairline);padding-bottom:10px;
+  }
+  .settings-panel-head .tag{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);}
+
+  .provider-tabs{
+    display:flex;gap:6px;margin-bottom:14px;background:var(--bg);
+    padding:3px;border-radius:3px;border:1px solid var(--hairline);
+  }
+  .provider-tab{
+    flex:1;text-align:center;background:transparent;border:none;
+    color:var(--text-dim);padding:8px 12px;font-family:var(--font-mono);
+    font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    cursor:pointer;border-radius:2px;transition:all .15s ease;
+  }
+  .provider-tab:hover{color:var(--text);}
+  .provider-tab.active{background:var(--surface-raised);color:var(--signal);font-weight:500;}
+
+  .settings-group{display:flex;flex-direction:column;gap:12px;}
+  .field-row{display:flex;flex-direction:column;gap:6px;}
+  .field-row label{margin-bottom:0;}
+  .key-input-group{display:flex;position:relative;width:100%;}
+  .key-input-group input{padding-right:40px;margin-bottom:0;}
+  .toggle-key-btn{
+    position:absolute;right:0;top:0;bottom:0;width:38px;
+    background:transparent;border:none;color:var(--text-dim);
+    cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;
+    font-size:14px;
+  }
+  .toggle-key-btn:hover{color:var(--text);background:transparent;transform:none;}
+  select{
+    width:100%;background:var(--bg);border:1px solid var(--hairline);
+    border-radius:2px;color:var(--text);font-family:var(--font-body);
+    font-size:14px;padding:10px 12px;outline:none;margin-bottom:0;
+    transition:border-color .15s ease;
+  }
+  select:focus{border-color:var(--signal-dim);}
+  .custom-model-input{margin-top:6px;}
+
+  /* ---------- history panel ---------- */
+  .history-panel{
+    display:none;
+    background:var(--surface);border:1px solid var(--hairline);border-radius:3px;
+    margin-bottom:8px;overflow:hidden;
+  }
+  .history-panel.open{display:block;animation:fadeUp .2s ease;}
+  .history-panel-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 18px;border-bottom:1px solid var(--hairline);
+  }
+  .history-panel-head .tag{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);}
+  .clear-link{
+    background:none;border:none;color:var(--text-faint);
+    font-family:var(--font-mono);font-size:11px;cursor:pointer;
+    text-decoration:underline;text-decoration-color:var(--hairline);
+    padding:0;
+  }
+  .clear-link:hover{color:#e08a7a;}
+  .history-list{max-height:280px;overflow-y:auto;}
+  .history-item{
+    display:block;width:100%;text-align:left;background:none;border:none;
+    border-bottom:1px solid var(--hairline);padding:13px 18px;cursor:pointer;
+    color:var(--text);font-family:var(--font-body);
+  }
+  .history-item:last-child{border-bottom:none;}
+  .history-item:hover{background:var(--surface-raised);}
+  .history-item .h-pick{font-size:14px;font-weight:500;color:var(--signal);margin-bottom:2px;}
+  .history-item .h-q{font-size:12.5px;color:var(--text-dim);margin-bottom:4px;}
+  .history-item .h-date{font-family:var(--font-mono);font-size:10px;color:var(--text-faint);}
+  .history-empty{padding:20px 18px;font-size:13px;color:var(--text-faint);font-style:italic;}
+
+  /* ---------- funnel signature ---------- */
+  .funnel{margin:28px 0 8px;height:56px;}
+  .funnel svg{width:100%;height:100%;display:block;}
+  .funnel line{stroke:var(--text-faint);stroke-width:1;opacity:.35;}
+  .funnel .point{stroke:var(--signal);stroke-width:2;opacity:0;}
+  .funnel.resolved .point{opacity:1;transition:opacity .6s ease .4s;}
+  .funnel.resolved line{opacity:.08;transition:opacity .6s ease;}
+
+  /* ---------- form ---------- */
+  form, #form{
+    background:var(--surface);
+    border:1px solid var(--hairline);
+    border-radius:3px;
+    padding:22px;
+    margin-bottom:8px;
+  }
+  label{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:8px;
+  }
+  textarea, input[type=text], input[type=password]{
+    width:100%;
+    background:var(--bg);
+    border:1px solid var(--hairline);
+    border-radius:2px;
+    color:var(--text);
+    font-family:var(--font-body);
+    font-size:15px;
+    padding:12px 13px;
+    resize:vertical;
+    outline:none;
+    transition:border-color .15s ease;
+  }
+  textarea:focus, input[type=text]:focus, input[type=password]:focus{border-color:var(--signal-dim);}
+  textarea{min-height:64px;margin-bottom:16px;}
+  input[type=text]{margin-bottom:18px;}
+  .row-label{display:flex;justify-content:space-between;align-items:baseline;}
+  .row-label .opt{color:var(--text-faint);font-size:10px;text-transform:none;letter-spacing:0;font-family:var(--font-body);}
+
+  button{
+    font-family:var(--font-mono);
+    font-size:12px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    background:var(--signal);
+    color:#0E1512;
+    border:none;
+    border-radius:2px;
+    padding:12px 20px;
+    cursor:pointer;
+    font-weight:500;
+    transition:transform .12s ease, background .15s ease;
+  }
+  button:hover:not(:disabled){background:#72c298;}
+  button:active:not(:disabled){transform:scale(.98);}
+  button:disabled{background:var(--hairline);color:var(--text-faint);cursor:default;}
+
+  /* ---------- status / errors ---------- */
+  .status{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--text-dim);
+    margin-top:14px;
+    min-height:16px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .status.err{color:#e08a7a;}
+  .spinner{
+    width:11px;height:11px;border-radius:50%;
+    border:1.5px solid var(--hairline);
+    border-top-color:var(--signal);
+    animation:spin .7s linear infinite;
+    flex:none;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- results ---------- */
+  #results{display:none;margin-top:40px;}
+  #results.show{display:block;animation:fadeUp .5s ease;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+  section{margin-bottom:34px;}
+  .label-row{
+    display:flex;align-items:center;gap:10px;margin-bottom:14px;
+  }
+  .label-row .tag{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+  }
+  .label-row .line{flex:1;height:1px;background:var(--hairline);}
+
+  /* pick card */
+  .pick-card{
+    background:linear-gradient(180deg, var(--surface-raised), var(--surface));
+    border:1px solid var(--signal-dim);
+    border-left:3px solid var(--signal);
+    border-radius:3px;
+    padding:26px 24px;
+  }
+  .pick-name{
+    font-family:var(--font-display);
+    font-size:clamp(22px,4vw,28px);
+    font-weight:500;
+    color:var(--text);
+    margin:0 0 4px;
+  }
+  .confidence{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--text-dim);margin-bottom:14px;
+  }
+  .confidence .bars{display:flex;gap:2px;}
+  .confidence .bar{width:3px;height:9px;background:var(--hairline);border-radius:1px;}
+  .confidence .bar.on{background:var(--signal);}
+  .pick-why{font-size:15px;line-height:1.6;color:var(--text);}
+
+  /* criteria */
+  .criteria-list{display:flex;flex-direction:column;gap:10px;}
+  .criterion{
+    display:grid;grid-template-columns:130px 1fr;gap:14px;
+    font-size:13.5px;line-height:1.5;padding:10px 0;
+    border-bottom:1px solid var(--hairline);
+  }
+  .criterion:last-child{border-bottom:none;}
+  .criterion .name{font-family:var(--font-mono);font-size:12px;color:var(--signal);}
+  .criterion .why{color:var(--text-dim);}
+
+  /* comparison table */
+  .table-scroll{overflow-x:auto;border:1px solid var(--hairline);border-radius:3px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:480px;}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--hairline);white-space:nowrap;}
+  th{
+    font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--text-faint);background:var(--surface);
+    position:sticky;top:0;
+  }
+  tr:last-child td{border-bottom:none;}
+  td.opt-name{font-weight:500;white-space:normal;}
+  tr.is-pick td.opt-name{color:var(--signal);}
+  tr.is-pick td.opt-name::before{content:"✓ ";}
+  tr.is-eliminated td{color:var(--text-faint);}
+  tr.is-eliminated td.opt-name{text-decoration:line-through;text-decoration-color:var(--hairline);}
+  .elim-reason{
+    display:block;font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);
+    margin-top:2px;white-space:normal;
+  }
+
+  /* uncertain */
+  .uncertain-box{
+    background:rgba(217,164,65,.06);
+    border:1px solid var(--uncertain-dim);
+    border-left:3px solid var(--uncertain);
+    border-radius:3px;padding:18px 20px;
+  }
+  .uncertain-box ul{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:10px;}
+  .uncertain-box li{
+    font-size:13.5px;line-height:1.55;color:var(--text);
+    padding-left:18px;position:relative;
+  }
+  .uncertain-box li::before{
+    content:"?";position:absolute;left:0;top:0;
+    font-family:var(--font-mono);font-size:12px;color:var(--uncertain);
+  }
+  .uncertain-empty{color:var(--text-dim);font-size:13px;font-style:italic;}
+
+  /* sources */
+  .sources{display:flex;flex-direction:column;gap:6px;}
+  .sources a{
+    font-family:var(--font-mono);font-size:12px;color:var(--text-dim);
+    text-decoration:none;border-bottom:1px dotted var(--hairline);
+    padding-bottom:1px;word-break:break-all;
+  }
+  .sources a:hover{color:var(--signal);border-bottom-color:var(--signal-dim);}
+
+  .reset-row{margin-top:8px;}
+  .reset-row button{background:transparent;border:1px solid var(--hairline);color:var(--text-dim);}
+  .reset-row button:hover{border-color:var(--text-faint);color:var(--text);background:transparent;}
+
+  footer{margin-top:56px;font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="header-main">
+      <div class="eyebrow"><span class="dot"></span>Sieve</div>
+      <h1>One decision.<br><em>One</em> answer.</h1>
+      <p class="sub">Tell it what you're choosing between. It researches, throws out what doesn't actually matter, and gives you a single pick — flagging anything it isn't sure of instead of guessing.</p>
+    </div>
+    <div class="header-actions">
+      <div class="header-btns">
+        <button class="api-settings-btn" id="apiSettingsBtn">⚙ API Settings</button>
+        <button class="history-btn" id="historyBtn">History <span class="count" id="historyCount">0</span></button>
+      </div>
+      <div class="storage-note" id="storageNote"></div>
+    </div>
+  </header>
+
+  <!-- API Settings Panel -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-panel-head">
+      <span class="tag">AI Provider & Key Settings</span>
+      <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-faint);">Saved locally in browser</span>
+    </div>
+    <div class="provider-tabs">
+      <button type="button" class="provider-tab active" id="tabNvidia" data-provider="nvidia">NVIDIA NIM</button>
+      <button type="button" class="provider-tab" id="tabAnthropic" data-provider="anthropic">Anthropic</button>
+    </div>
+    <div class="settings-group">
+      <!-- NVIDIA Settings -->
+      <div id="nvidiaSettings">
+        <div class="field-row" style="margin-bottom: 12px;">
+          <label for="nvidiaKey">NVIDIA API Key</label>
+          <div class="key-input-group">
+            <input type="password" id="nvidiaKey" placeholder="nvapi-..." autocomplete="off">
+            <button type="button" class="toggle-key-btn" data-target="nvidiaKey">👁</button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label for="nvidiaModel">Model</label>
+          <select id="nvidiaModel">
+            <option value="meta/llama-3.1-8b-instruct">meta/llama-3.1-8b-instruct (Recommended - Ultra Fast ⚡)</option>
+            <option value="meta/llama-3.3-70b-instruct">meta/llama-3.3-70b-instruct (Llama 3.3 70B)</option>
+            <option value="meta/llama-3.1-70b-instruct">meta/llama-3.1-70b-instruct (Llama 3.1 70B)</option>
+            <option value="mistralai/mistral-large-2411">mistralai/mistral-large-2411 (Mistral Large)</option>
+            <option value="deepseek-ai/deepseek-r1">deepseek-ai/deepseek-r1 (Reasoning)</option>
+            <option value="custom">Custom Model...</option>
+          </select>
+          <input type="text" id="nvidiaCustomModel" class="custom-model-input" placeholder="e.g. meta/llama-3.1-405b-instruct" style="display:none;">
+        </div>
+      </div>
+
+      <!-- Anthropic Settings -->
+      <div id="anthropicSettings" style="display:none;">
+        <div class="field-row" style="margin-bottom: 12px;">
+          <label for="anthropicKey">Anthropic API Key</label>
+          <div class="key-input-group">
+            <input type="password" id="anthropicKey" placeholder="sk-ant-..." autocomplete="off">
+            <button type="button" class="toggle-key-btn" data-target="anthropicKey">👁</button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label for="anthropicModel">Model</label>
+          <select id="anthropicModel">
+            <option value="claude-3-7-sonnet-20250219">claude-3-7-sonnet-20250219 (Recommended)</option>
+            <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet-20241022</option>
+            <option value="claude-3-5-haiku-20241022">claude-3-5-haiku-20241022</option>
+            <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+            <option value="custom">Custom Model...</option>
+          </select>
+          <input type="text" id="anthropicCustomModel" class="custom-model-input" placeholder="e.g. claude-3-5-sonnet-latest" style="display:none;">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="history-panel" id="historyPanel">
+    <div class="history-panel-head">
+      <span class="tag">Past decisions</span>
+      <button class="clear-link" id="clearHistoryBtn">Clear all</button>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+
+  <div class="funnel" id="funnel">
+    <svg viewBox="0 0 640 56" preserveAspectRatio="none">
+      <line x1="0" y1="6" x2="380" y2="28" />
+      <line x1="0" y1="16" x2="380" y2="28" />
+      <line x1="0" y1="28" x2="380" y2="28" />
+      <line x1="0" y1="40" x2="380" y2="28" />
+      <line x1="0" y1="50" x2="380" y2="28" />
+      <line x1="0" y1="22" x2="380" y2="28" />
+      <line x1="0" y1="34" x2="380" y2="28" />
+      <line class="point" x1="380" y1="28" x2="640" y2="28" />
+    </svg>
+  </div>
+
+  <div id="form">
+    <div class="row-label"><label for="q">What are you deciding</label></div>
+    <textarea id="q" placeholder="e.g. best noise-cancelling headphones for flights, under $300"></textarea>
+    <div class="row-label">
+      <label for="ctx">Constraints or context</label>
+      <span class="opt">optional</span>
+    </div>
+    <input type="text" id="ctx" placeholder="budget, must-haves, where you'd use it, dealbreakers…">
+    <button type="button" id="submitBtn">Cut through it</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div id="results">
+
+    <section>
+      <div class="label-row"><span class="tag">The pick</span><div class="line"></div></div>
+      <div class="pick-card">
+        <div class="pick-name" id="pickName"></div>
+        <div class="confidence" id="confidence"></div>
+        <div class="pick-why" id="pickWhy"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="label-row"><span class="tag">What actually mattered</span><div class="line"></div></div>
+      <div class="criteria-list" id="criteria"></div>
+    </section>
+
+    <section>
+      <div class="label-row"><span class="tag">The comparison</span><div class="line"></div></div>
+      <div class="table-scroll"><table><thead><tr id="tableHead"></tr></thead><tbody id="tableBody"></tbody></table></div>
+    </section>
+
+    <section>
+      <div class="label-row"><span class="tag">Genuinely uncertain</span><div class="line"></div></div>
+      <div class="uncertain-box"><ul id="uncertainList"></ul></div>
+    </section>
+
+    <section id="sourcesSection">
+      <div class="label-row"><span class="tag">Sources</span><div class="line"></div></div>
+      <div class="sources" id="sources"></div>
+    </section>
+
+    <div class="reset-row"><button type="button" id="resetBtn">Ask something else</button></div>
+  </div>
+
+  <footer>Not financial, medical, or legal advice.</footer>
+</div>
+
+<script>
+const form = document.getElementById('form');
+const statusEl = document.getElementById('status');
+const submitBtn = document.getElementById('submitBtn');
+const resultsEl = document.getElementById('results');
+const funnelEl = document.getElementById('funnel');
+
+/* ---------- storage & provider settings ---------- */
+const HIST_KEY = 'sieve-decision-history';
+const SETTINGS_KEY = 'sieve-api-settings';
+const usingPlatformStorage = (typeof window.storage !== 'undefined' && window.storage);
+
+document.getElementById('storageNote').textContent = usingPlatformStorage
+  ? 'Saved · syncs with this chat'
+  : 'Saved locally to browser';
+
+const Store = {
+  async getHistory(){
+    try{
+      if(usingPlatformStorage){
+        const r = await window.storage.get(HIST_KEY, false);
+        return r && r.value ? JSON.parse(r.value) : [];
+      } else {
+        const raw = localStorage.getItem(HIST_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }
+    } catch(e){ return []; }
+  },
+  async setHistory(arr){
+    const json = JSON.stringify(arr);
+    try{
+      if(usingPlatformStorage){
+        await window.storage.set(HIST_KEY, json, false);
+      } else {
+        localStorage.setItem(HIST_KEY, json);
+      }
+    } catch(e){ console.error('Could not save history', e); }
+  },
+  getSettings(){
+    try{
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch(e){ return {}; }
+  },
+  saveSettings(obj){
+    try{
+      const current = Store.getSettings();
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({...current, ...obj}));
+    } catch(e){ console.error('Could not save settings', e); }
+  }
+};
+
+/* ---------- API Settings UI Logic ---------- */
+let activeProvider = 'nvidia';
+
+const apiSettingsBtn = document.getElementById('apiSettingsBtn');
+const settingsPanel = document.getElementById('settingsPanel');
+const tabNvidia = document.getElementById('tabNvidia');
+const tabAnthropic = document.getElementById('tabAnthropic');
+const nvidiaSettings = document.getElementById('nvidiaSettings');
+const anthropicSettings = document.getElementById('anthropicSettings');
+
+const nvidiaKeyInput = document.getElementById('nvidiaKey');
+const nvidiaModelSelect = document.getElementById('nvidiaModel');
+const nvidiaCustomModelInput = document.getElementById('nvidiaCustomModel');
+
+const anthropicKeyInput = document.getElementById('anthropicKey');
+const anthropicModelSelect = document.getElementById('anthropicModel');
+const anthropicCustomModelInput = document.getElementById('anthropicCustomModel');
+
+apiSettingsBtn.addEventListener('click', ()=>{
+  settingsPanel.classList.toggle('open');
+  document.getElementById('historyPanel').classList.remove('open');
+});
+
+function setProvider(provider){
+  activeProvider = provider;
+  if(provider === 'nvidia'){
+    tabNvidia.classList.add('active');
+    tabAnthropic.classList.remove('active');
+    nvidiaSettings.style.display = 'block';
+    anthropicSettings.style.display = 'none';
+  } else {
+    tabAnthropic.classList.add('active');
+    tabNvidia.classList.remove('active');
+    anthropicSettings.style.display = 'block';
+    nvidiaSettings.style.display = 'none';
+  }
+  Store.saveSettings({ provider });
+}
+
+tabNvidia.addEventListener('click', ()=> setProvider('nvidia'));
+tabAnthropic.addEventListener('click', ()=> setProvider('anthropic'));
+
+// Toggle password visibility
+document.querySelectorAll('.toggle-key-btn').forEach(btn => {
+  btn.addEventListener('click', ()=>{
+    const targetId = btn.getAttribute('data-target');
+    const input = document.getElementById(targetId);
+    if(input.type === 'password'){
+      input.type = 'text';
+      btn.textContent = '🙈';
+    } else {
+      input.type = 'password';
+      btn.textContent = '👁';
+    }
+  });
+});
+
+// Custom model toggle handlers
+nvidiaModelSelect.addEventListener('change', (e)=>{
+  nvidiaCustomModelInput.style.display = e.target.value === 'custom' ? 'block' : 'none';
+  Store.saveSettings({ nvidiaModel: e.target.value });
+});
+anthropicModelSelect.addEventListener('change', (e)=>{
+  anthropicCustomModelInput.style.display = e.target.value === 'custom' ? 'block' : 'none';
+  Store.saveSettings({ anthropicModel: e.target.value });
+});
+
+function detectAndSetKey(value, sourceInput){
+  const v = (value || '').trim();
+  if(v.startsWith('nvapi-')){
+    nvidiaKeyInput.value = v;
+    if(sourceInput && sourceInput !== nvidiaKeyInput) sourceInput.value = '';
+    setProvider('nvidia');
+    updateKeyBadge('nvidia', '✓ Valid NVIDIA Key detected');
+    Store.saveSettings({ nvidiaKey: v, anthropicKey: anthropicKeyInput.value.trim() });
+    return 'nvidia';
+  } else if(v.startsWith('sk-ant-')){
+    anthropicKeyInput.value = v;
+    if(sourceInput && sourceInput !== anthropicKeyInput) sourceInput.value = '';
+    setProvider('anthropic');
+    updateKeyBadge('anthropic', '✓ Valid Anthropic Key detected');
+    Store.saveSettings({ anthropicKey: v, nvidiaKey: nvidiaKeyInput.value.trim() });
+    return 'anthropic';
+  } else {
+    updateKeyBadge('nvidia', v ? 'NVIDIA Key' : '');
+    updateKeyBadge('anthropic', v ? 'Anthropic Key' : '');
+  }
+  return null;
+}
+
+function updateKeyBadge(provider, msg){
+  let badge = document.getElementById(provider + 'KeyBadge');
+  if(!badge){
+    badge = document.createElement('span');
+    badge.id = provider + 'KeyBadge';
+    badge.style.fontFamily = 'var(--font-mono)';
+    badge.style.fontSize = '10px';
+    badge.style.color = 'var(--signal)';
+    badge.style.marginLeft = '8px';
+    const label = document.querySelector(`label[for="${provider}Key"]`);
+    if(label) label.appendChild(badge);
+  }
+  badge.textContent = msg ? ' ' + msg : '';
+}
+
+nvidiaKeyInput.addEventListener('input', (e)=>{
+  detectAndSetKey(e.target.value, nvidiaKeyInput);
+  Store.saveSettings({ nvidiaKey: e.target.value.trim() });
+});
+anthropicKeyInput.addEventListener('input', (e)=>{
+  detectAndSetKey(e.target.value, anthropicKeyInput);
+  Store.saveSettings({ anthropicKey: e.target.value.trim() });
+});
+nvidiaCustomModelInput.addEventListener('input', (e)=> Store.saveSettings({ nvidiaCustomModel: e.target.value.trim() }));
+anthropicCustomModelInput.addEventListener('input', (e)=> Store.saveSettings({ anthropicCustomModel: e.target.value.trim() }));
+
+function loadSavedSettings(){
+  const s = Store.getSettings();
+  if(s.nvidiaKey) nvidiaKeyInput.value = s.nvidiaKey;
+  if(s.anthropicKey) anthropicKeyInput.value = s.anthropicKey;
+
+  if(s.provider) setProvider(s.provider);
+  else setProvider('nvidia');
+
+  if(s.nvidiaKey && s.nvidiaKey.startsWith('nvapi-')) updateKeyBadge('nvidia', '✓ Valid NVIDIA Key saved');
+  if(s.anthropicKey && s.anthropicKey.startsWith('sk-ant-')) updateKeyBadge('anthropic', '✓ Valid Anthropic Key saved');
+
+  if(s.nvidiaModel){
+    nvidiaModelSelect.value = s.nvidiaModel;
+    if(s.nvidiaModel === 'custom') nvidiaCustomModelInput.style.display = 'block';
+  }
+  if(s.nvidiaCustomModel) nvidiaCustomModelInput.value = s.nvidiaCustomModel;
+
+  if(s.anthropicModel){
+    anthropicModelSelect.value = s.anthropicModel;
+    if(s.anthropicModel === 'custom') anthropicCustomModelInput.style.display = 'block';
+  }
+  if(s.anthropicCustomModel) anthropicCustomModelInput.value = s.anthropicCustomModel;
+}
+loadSavedSettings();
+
+/* ---------- History Logic ---------- */
+async function saveToHistory(question, ctx, data){
+  const list = await Store.getHistory();
+  list.unshift({
+    id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
+    ts: Date.now(),
+    question, ctx, data
+  });
+  const trimmed = list.slice(0, 50);
+  await Store.setHistory(trimmed);
+  await refreshHistoryUI();
+}
+
+function fmtDate(ts){
+  const d = new Date(ts);
+  return d.toLocaleDateString(undefined, {month:'short', day:'numeric'}) + ' · ' +
+         d.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
+}
+
+async function refreshHistoryUI(){
+  const list = await Store.getHistory();
+  document.getElementById('historyCount').textContent = list.length;
+  const listEl = document.getElementById('historyList');
+  listEl.innerHTML = '';
+  if(!list.length){
+    listEl.innerHTML = '<div class="history-empty">No decisions saved yet — run one above.</div>';
+    return;
+  }
+  list.forEach(item=>{
+    const btn = document.createElement('button');
+    btn.className = 'history-item';
+    btn.innerHTML = `
+      <div class="h-pick">${esc(item.data?.pick?.name || 'No clear winner')}</div>
+      <div class="h-q">${esc(item.question)}</div>
+      <div class="h-date">${esc(fmtDate(item.ts))}</div>`;
+    btn.addEventListener('click', ()=>{
+      document.getElementById('q').value = item.question;
+      document.getElementById('ctx').value = item.ctx || '';
+      render(item.data);
+      document.getElementById('historyPanel').classList.remove('open');
+      resultsEl.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+    listEl.appendChild(btn);
+  });
+}
+
+document.getElementById('historyBtn').addEventListener('click', ()=>{
+  document.getElementById('historyPanel').classList.toggle('open');
+  settingsPanel.classList.remove('open');
+});
+
+document.getElementById('clearHistoryBtn').addEventListener('click', async ()=>{
+  if(!confirm('Clear all saved decisions? This can\'t be undone.')) return;
+  await Store.setHistory([]);
+  await refreshHistoryUI();
+});
+
+refreshHistoryUI();
+
+function setStatus(msg, isErr){
+  statusEl.innerHTML = '';
+  if(isErr){
+    statusEl.classList.add('err');
+    statusEl.textContent = msg;
+  } else {
+    statusEl.classList.remove('err');
+    if(msg){
+      const sp = document.createElement('div');
+      sp.className = 'spinner';
+      statusEl.appendChild(sp);
+      const t = document.createElement('span');
+      t.textContent = msg;
+      statusEl.appendChild(t);
+    }
+  }
+}
+
+function extractJson(text){
+  let t = text.trim();
+  // Strip DeepSeek-R1 <think>...</think> reasoning blocks if present
+  t = t.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  t = t.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+  const start = t.indexOf('{');
+  if(start === -1) throw new Error('No JSON object found in response');
+  t = t.slice(start);
+
+  try { return JSON.parse(t); } catch(e) {}
+
+  let inStr = false, esc = false;
+  const stack = [];
+  const cutPoints = [];
+  for(let i = 0; i < t.length; i++){
+    const c = t[i];
+    if(inStr){
+      if(esc){ esc = false; }
+      else if(c === '\\'){ esc = true; }
+      else if(c === '"'){ inStr = false; }
+      continue;
+    }
+    if(c === '"'){ inStr = true; continue; }
+    if(c === '{' || c === '['){ stack.push(c); }
+    else if(c === '}' || c === ']'){ stack.pop(); }
+    if(!inStr && (c === ',' || c === '}' || c === ']')) cutPoints.push(i + 1);
+  }
+
+  for(let k = cutPoints.length - 1; k >= 0; k--){
+    let prefix = t.slice(0, cutPoints[k]).replace(/,\s*$/, '');
+    let s2 = [], inStr2 = false, esc2 = false;
+    for(let j = 0; j < prefix.length; j++){
+      const c = prefix[j];
+      if(inStr2){
+        if(esc2){ esc2 = false; }
+        else if(c === '\\'){ esc2 = true; }
+        else if(c === '"'){ inStr2 = false; }
+        continue;
+      }
+      if(c === '"'){ inStr2 = true; continue; }
+      if(c === '{' || c === '['){ s2.push(c); }
+      else if(c === '}' || c === ']'){ s2.pop(); }
+    }
+    if(inStr2) continue;
+    let closer = '';
+    for(let j = s2.length - 1; j >= 0; j--) closer += s2[j] === '{' ? '}' : ']';
+    try { return JSON.parse(prefix + closer); } catch(e) {}
+  }
+
+  throw new Error('Response was cut off and could not be parsed');
+}
+
+function esc(s){
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+function render(data){
+  document.getElementById('pickName').textContent = data.pick?.name || 'No clear winner';
+  document.getElementById('pickWhy').textContent = data.pick?.why || '';
+
+  const confMap = {high:3, medium:2, low:1};
+  const level = confMap[(data.pick?.confidence||'medium').toLowerCase()] || 2;
+  const confEl = document.getElementById('confidence');
+  let bars = '';
+  for(let i=1;i<=3;i++) bars += `<span class="bar ${i<=level?'on':''}"></span>`;
+  confEl.innerHTML = `<span class="bars">${bars}</span>${esc(data.pick?.confidence || 'medium')} confidence`;
+
+  const critEl = document.getElementById('criteria');
+  critEl.innerHTML = '';
+  (data.criteria||[]).forEach(c=>{
+    const row = document.createElement('div');
+    row.className = 'criterion';
+    row.innerHTML = `<div class="name">${esc(c.label)}</div><div class="why">${esc(c.why_it_matters)}</div>`;
+    critEl.appendChild(row);
+  });
+
+  const criteriaLabels = (data.criteria||[]).map(c=>c.label);
+  const head = document.getElementById('tableHead');
+  head.innerHTML = '<th>Option</th>' + criteriaLabels.map(l=>`<th>${esc(l)}</th>`).join('');
+  const body = document.getElementById('tableBody');
+  body.innerHTML = '';
+  (data.options||[]).forEach(o=>{
+    const tr = document.createElement('tr');
+    if(o.verdict === 'pick') tr.className = 'is-pick';
+    if(o.verdict === 'eliminated') tr.className = 'is-eliminated';
+    let nameCell = `<td class="opt-name">${esc(o.name)}`;
+    if(o.verdict === 'eliminated' && o.eliminated_reason){
+      nameCell += `<span class="elim-reason">${esc(o.eliminated_reason)}</span>`;
+    }
+    nameCell += `</td>`;
+    let cells = nameCell;
+    criteriaLabels.forEach(l=>{
+      cells += `<td>${esc(o.values ? o.values[l] : '') || '—'}</td>`;
+    });
+    tr.innerHTML = cells;
+    body.appendChild(tr);
+  });
+
+  const uEl = document.getElementById('uncertainList');
+  uEl.innerHTML = '';
+  if(data.uncertain && data.uncertain.length){
+    data.uncertain.forEach(u=>{
+      const li = document.createElement('li');
+      li.textContent = u;
+      uEl.appendChild(li);
+    });
+  } else {
+    const li = document.createElement('li');
+    li.className = 'uncertain-empty';
+    li.textContent = 'Nothing flagged — the pick held up across sources.';
+    li.style.paddingLeft = '0';
+    uEl.appendChild(li);
+  }
+
+  const srcSection = document.getElementById('sourcesSection');
+  const srcEl = document.getElementById('sources');
+  srcEl.innerHTML = '';
+  if(data.sources && data.sources.length){
+    srcSection.style.display = '';
+    data.sources.forEach(s=>{
+      const a = document.createElement('a');
+      a.href = s.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.textContent = s.title || s.url;
+      srcEl.appendChild(a);
+    });
+  } else {
+    srcSection.style.display = 'none';
+  }
+
+  resultsEl.classList.add('show');
+  funnelEl.classList.add('resolved');
+  resultsEl.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+window.addEventListener('error', (e)=>{
+  setStatus('Script error: ' + (e.message || 'unknown'), true);
+});
+
+async function callAI(systemPrompt, userMsg) {
+  const nvidiaKey = nvidiaKeyInput.value.trim();
+  const anthropicKey = anthropicKeyInput.value.trim();
+
+  if (activeProvider === 'anthropic' && !anthropicKey && nvidiaKey.startsWith('nvapi-')) {
+    setProvider('nvidia');
+  } else if (activeProvider === 'nvidia' && !nvidiaKey && anthropicKey.startsWith('sk-ant-')) {
+    setProvider('anthropic');
+  }
+
+  const provider = activeProvider;
+  const key = provider === 'nvidia' ? nvidiaKeyInput.value.trim() : anthropicKeyInput.value.trim();
+
+  if (!key) {
+    settingsPanel.classList.add('open');
+    const label = provider === 'nvidia' ? 'NVIDIA API Key (starts with nvapi-)' : 'Anthropic API Key';
+    throw new Error(`Please enter your ${label} in API Settings`);
+  }
+
+  let model = provider === 'nvidia' ? nvidiaModelSelect.value : anthropicModelSelect.value;
+  if (model === 'custom') {
+    model = (provider === 'nvidia' ? nvidiaCustomModelInput.value.trim() : anthropicCustomModelInput.value.trim()) || 
+            (provider === 'nvidia' ? 'meta/llama-3.1-8b-instruct' : 'claude-3-7-sonnet-20250219');
+  }
+
+  const proxyEndpoint = (window.location.origin && window.location.origin.startsWith('http') && window.location.port === '8090')
+    ? '/api/chat'
+    : 'http://127.0.0.1:8090/api/chat';
+
+  let proxyResp;
+  try {
+    proxyResp = await fetch(proxyEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, apiKey: key, model, system: systemPrompt, userMsg })
+    });
+  } catch(netErr) {
+    throw new Error(`Cannot connect to local server at ${proxyEndpoint}. Please check if python server.py is running.`);
+  }
+
+  let res;
+  try {
+    res = await proxyResp.json();
+  } catch(e) {
+    throw new Error(`Invalid response from server proxy (${proxyResp.status})`);
+  }
+
+  if (!res.success) {
+    throw new Error(res.error || 'API request failed');
+  }
+
+  const data = res.data;
+  if (provider === 'nvidia') {
+    const text = data.choices?.[0]?.message?.content;
+    if (!text) throw new Error('No text content returned from NVIDIA API response');
+    return text;
+  } else {
+    const text = (data.content || []).map(i => i.type === 'text' ? i.text : '').filter(Boolean).join('\n');
+    if (!text) throw new Error('No text content returned from Anthropic API response');
+    return text;
+  }
+}
+
+async function runQuery(){
+  const question = document.getElementById('q').value.trim();
+  const ctx = document.getElementById('ctx').value.trim();
+  if(!question){
+    setStatus('Type what you\'re deciding between first.', true);
+    document.getElementById('q').focus();
+    return;
+  }
+
+  submitBtn.disabled = true;
+  resultsEl.classList.remove('show');
+  funnelEl.classList.remove('resolved');
+  const providerLabel = activeProvider === 'nvidia' ? 'NVIDIA NIM' : 'Anthropic';
+  setStatus(`Evaluating with ${providerLabel}…`);
+
+  const system = `You help someone make one clear, well-reasoned decision without wasting their time. Respond with ONLY a single JSON object — no markdown fences, no preamble, no commentary outside the JSON.
+
+Rules:
+- Find real, current, specific options (actual product/service names, not categories).
+- Identify only the criteria that genuinely differentiate the options FOR THIS DECISION — exactly 3-4. Discard specs or facts that don't actually change which option is best.
+- Compare exactly 3 real options on exactly those criteria. Keep table values very short (2-5 words each).
+- Pick exactly ONE winner. Give a confidence level of "high", "medium", or "low" based on how solid the evidence is. Keep the "why" to 1-2 sentences.
+- In "uncertain", list at most 3 things you could not verify or that genuinely vary — flag them plainly in under 15 words each. If truly nothing is uncertain, return an empty array.
+- Include at most 3 relevant reference sources or documentation URLs if applicable.
+- Keep everything tight and concrete. This entire JSON response must stay under 600 words total — brevity matters more than completeness.
+
+Return exactly this JSON shape, fully valid, with no trailing commas and every array/object properly closed:
+{
+  "pick": {"name": string, "why": string, "confidence": "high"|"medium"|"low"},
+  "criteria": [{"label": string, "why_it_matters": string}],
+  "options": [{"name": string, "values": {criterion_label: short_value}, "verdict": "pick"|"runner_up"|"eliminated", "eliminated_reason": string (only if eliminated, one short phrase)}],
+  "uncertain": [string, ...],
+  "sources": [{"title": string, "url": string}]
+}`;
+
+  const userMsg = ctx ? `Decision: ${question}\n\nConstraints/context: ${ctx}` : `Decision: ${question}`;
+
+  try{
+    const rawResponse = await callAI(system, userMsg);
+    setStatus('Structuring decision matrix…');
+    const parsed = extractJson(rawResponse);
+    render(parsed);
+    setStatus('');
+    saveToHistory(question, ctx, parsed);
+  } catch(err){
+    console.error(err);
+    setStatus('Couldn\'t complete that — ' + err.message + '. Try again.', true);
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+submitBtn.addEventListener('click', runQuery);
+document.getElementById('ctx').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ e.preventDefault(); runQuery(); }
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  resultsEl.classList.remove('show');
+  funnelEl.classList.remove('resolved');
+  document.getElementById('q').value = '';
+  document.getElementById('ctx').value = '';
+  document.getElementById('q').focus();
+  window.scrollTo({top:0, behavior:'smooth'});
+});
+</script>
+</body>
+</html>
